@@ -5,10 +5,10 @@ namespace GX;
 use DateTime;
 use DateTimeZone;
 
-/** 
+/**
  * Numerous REST API client
  * API docs: http://docs.numerous.apiary.io/
- * 
+ *
  * @author    Gerwert
  */
 class Numerous {
@@ -27,14 +27,14 @@ class Numerous {
      * Secret Numerous API key
      */
     private $_key = null;
-    
+
     public function __construct($key) {
         if (empty($key)) {
             throw new \InvalidArgumentException('You must supply an API key');
-        }        
+        }
         $this->_key = $key;
     }
-   
+
     /**
      * List a user's Metrics.
      * Optional: user id (default 'me' for authenticted user)
@@ -53,7 +53,7 @@ class Numerous {
         $result = $this->get("/v2/metrics/{$metric_id}", array(
             "expand" => "owner"
         ));
-        return $result;        
+        return $result;
     }
 
     /**
@@ -68,12 +68,12 @@ class Numerous {
     public function createMetric($label, $fields = array(), $private = true, $writeable = false) {
         // Merge supplied properties with default values
         $data = array_merge(array(
-            "label" => (string)$label,            
+            "label" => (string)$label,
             "private" => (bool)$private,
             "writeable" => (bool)$writeable
-        ), $fields);                
+        ), $fields);
         $result = $this->post("/v2/metrics", $data);
-        return $result;          
+        return $result;
     }
 
     /**
@@ -84,10 +84,10 @@ class Numerous {
      * - moreURL
      */
     public function updateMetric($metric_id, $fields) {
-        $data = array_merge(array(           
+        $data = array_merge(array(
         ), $fields);
         $result = $this->post("/v2/metrics/{$metric_id}", $data, 'PUT');
-        return $result;          
+        return $result;
     }
 
     /**
@@ -102,35 +102,35 @@ class Numerous {
         }
         if (exif_imagetype($filePath) != IMAGETYPE_PNG) {
            throw new \InvalidArgumentException('Supplied image is not of type PNG');
-        }        
+        }
         $url = self::API_BASE_URL . "/v1/metrics/{$metric_id}/photo";
 
         // Post fields
         $fields = array(
-            "image" => "@$filePath;type=image/png",             
+            "image" => "@$filePath;type=image/png",
         );
 
-        $ch = curl_init(); //open connection                       
+        $ch = curl_init(); //open connection
         curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, true);                                                                     
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);                                                                                             
-        return $this->curl_exec($ch);                   
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+        return $this->curl_exec($ch);
     }
 
     public function setPhotoFromUrl($metric_id, $url) {
         // Generate temp. file
         $temp = tmpfile();
         // Retrieve image form URL
-        $img = file_get_contents($url);        
+        $img = file_get_contents($url);
         fwrite($temp,$img);
         // Get temp. file name
         $meta_data = stream_get_meta_data($temp);
-        $filename = $meta_data["uri"];        
+        $filename = $meta_data["uri"];
         try {
             return $this->setPhoto($metric_id, $filename);
         } catch (Exception $e) {
             throw $e;
-        } finally {            
+        } finally {
             fclose($temp); // this removes the file;
         }
     }
@@ -143,7 +143,7 @@ class Numerous {
      * @param DateTime  $updated    Give value to create an event with an updated value different than the current time
      * @param boolean   $add        If true sends the "action: ADD" (the value is added to the metric)
      */
-    public function createEvent($metric_id, $value, DateTime $updated = null, $add = false) {        
+    public function createEvent($metric_id, $value, DateTime $updated = null, $add = false) {
         $data = array(
             "value" => $value
         );
@@ -155,39 +155,61 @@ class Numerous {
             $data['action'] = 'ADD';
         }
         $result = $this->post("/v1/metrics/{$metric_id}/events", $data);
-        return $result;  
+        return $result;
+    }
+
+    /**
+     * List events
+     *
+     * @param string    $metric_id  Metric id
+     */
+    public function listEvents($metric_id){
+        $result = $this->get("/v2/metrics/{$metric_id}/events");
+        return $result;
+    }
+
+
+    /**
+     * Delete event
+     *
+     * @param string    $metric_id  Metric id
+     * @param string    $event_id   Event id to delete
+     */
+    public function deleteEvent($metric_id, $event_id) {
+        $result = $this->delete("/v2/metrics/{$metric_id}/events/{$event_id}");
+        return $result;
     }
 
     /**
      * Create interaction (e.g. comment)
      */
-    public function createInteraction($metric_id, $fields = array()) {        
-        $data = array_merge(array( 
+    public function createInteraction($metric_id, $fields = array()) {
+        $data = array_merge(array(
             "authorId"=> "me",
             "kind" => "comment"
-        ), $fields);     
+        ), $fields);
         $result = $this->post("/v1/metrics/{$metric_id}/interactions", $data);
-        return $result;         
+        return $result;
     }
 
     /**
      * Generic POST action
      */
     private function get($path, $params = array()) {
-        $headers = array(                                                                          
+        $headers = array(
             'Accept: application/json',
-            'Content-Type: application/json'                                                                              		    
+            'Content-Type: application/json'
         );
         $url = self::API_BASE_URL . $path;
         if (!empty($params)) {
-            $url .= '?' . http_build_query($params, null, '&');            
+            $url .= '?' . http_build_query($params, null, '&');
         }
-        
-        $ch = curl_init(); //open connection                       
-        curl_setopt($ch, CURLOPT_URL, $url);     
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);   
 
-        return $this->curl_exec($ch);     	
+        $ch = curl_init(); //open connection
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        return $this->curl_exec($ch);
     }
 
     /**
@@ -201,26 +223,47 @@ class Numerous {
         $url = self::API_BASE_URL . $path;
 
         // Headers
-        $headers = array(                                                                          
+        $headers = array(
             'Accept: application/json',
-            'Content-Type: application/json',                                                                                
-            'Content-Length: ' . strlen($data_string)                                                                      
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($data_string)
         );
 
-        $ch = curl_init(); //open connection                       
+        $ch = curl_init(); //open connection
         curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);                                                                     
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);                                                                  		
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        
+
         return $this->curl_exec($ch);
-    } 
+    }
+
+    /**
+     * Generic DELETE action
+     */
+    private function delete($path) {
+
+        // Construct URL
+        $url = self::API_BASE_URL . $path;
+
+        // Headers
+        $headers = array(
+            'Accept: application/json'
+        );
+	
+        $ch = curl_init(); //open connection
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        return $this->curl_exec($ch);
+    }
 
     private function curl_exec($ch) {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);   
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);           
-        curl_setopt($ch, CURLOPT_USERAGENT, "gx-numerous-api (github.com/onderweg)");              
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_USERAGENT, "gx-numerous-api (github.com/onderweg)");
         // Authentication to the Numerous API occurs via Basic HTTP Auth.
         curl_setopt($ch, CURLOPT_USERPWD, $this->_key . ':');
 
@@ -229,18 +272,18 @@ class Numerous {
         $url = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         if(curl_errno($ch)) { // Check if any error occurred
             throw new NumerousException(curl_error($ch), NumerousException::NET_ERROR);
-        }      
+        }
         curl_close($ch);
 
         $response = json_decode($result, false, 512, JSON_BIGINT_AS_STRING);
-        if ($httpCode != 200 && $httpCode != 201) {     
-            throw new NumerousException("HTTP error {$httpCode}, URL: {$url}", NumerousException::HTTP_ERROR);  
-        }                          
-        if ($response === null) { // Json can't be decoded
+        if (!in_array($httpCode,array(200,201,204))){
+            throw new NumerousException("HTTP error {$httpCode}, URL: {$url}", NumerousException::HTTP_ERROR);
+        }
+        if ($response === null && $httpCode!=204) { // Json can't be decoded
             throw new NumerousException("Invalid JSON response server: $response", NumerousException::JSON_ERROR);
         }
-                
-        return $response;        
+
+        return $response;
     }
 
 }
